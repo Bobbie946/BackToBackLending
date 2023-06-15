@@ -9,7 +9,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
   let comptroller;
   let priceOracle;
   let erc20;
-  let erc20_2;
+  let ib01token;
   let CErc20;
   let CErc20_2;
 
@@ -59,16 +59,46 @@ describe("🔥Fork BackToBack Test🔥", function () {
     );
     await CErc20.deployed();
 
-    //deploy token B
-    const erc20_2Factory = await ethers.getContractFactory("MockIB01");
-    const erc20_2 = await erc20_2Factory.deploy(
-      ethers.utils.parseUnits("1000", 18)
-    );
-    await erc20_2.deployed();
+    //deploy token IB01
+    const SanctionsListMockFacory = await ethers.getContractFactory('SanctionsListMock');
+    const SanctionsListMock = await SanctionsListMockFacory.deploy();
+    await SanctionsListMock.deployed();
+
+    const BackedOracleFactory = await ethers.getContractFactory('BackedOracle');
+    const BackedOracle = await BackedOracleFactory.deploy(18, "bIB01 Price Feed");
+    await BackedOracle.deployed();
+
+    const BackedFactoryFactory = await ethers.getContractFactory('BackedFactory');
+    const BackedFactory = await BackedFactoryFactory.deploy(owner.address);
+    await BackedFactory.deployed();
+
+    const tokenName = "Backed IB01";
+    const tokenSymbol = "IB01";
+    let minter = owner.address;
+    let burner = owner.address;
+    let pauser = owner.address;
+    let tokenContractOwner = owner.address;
+
+    const tokenDeployReceipt = await (
+        await BackedFactory.connect(owner).deployToken(
+          tokenName,
+          tokenSymbol,
+          tokenContractOwner,
+          minter,
+          burner,
+          pauser,
+          SanctionsListMock.address
+        )
+      ).wait();
+    const deployedTokenAddress = tokenDeployReceipt.events?.find((event) => event.event === "NewToken")?.args?.newToken;
+    const ib01token = await ethers.getContractAt("BackedTokenImplementation",deployedTokenAddress);
+    await ib01token.setMinter(owner.address);
+    await ib01token.setBurner(owner.address);
+    await ib01token.mint(owner.address, ethers.utils.parseUnits("1000", 18)) 
 
     const CErc20_2Factory = await ethers.getContractFactory("CErc20Immutable");
     const CErc20_2 = await CErc20_2Factory.deploy(
-      erc20_2.address,
+      ib01token.address,
       comptroller.address,
       interestRateModel.address,
       ethers.utils.parseUnits("1", 18),
@@ -88,7 +118,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       comptroller,
       priceOracle,
       CErc20_2,
-      erc20_2,
+      ib01token,
     };
   }
 
@@ -100,7 +130,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
     comptroller = fixture.comptroller;
     priceOracle = fixture.priceOracle;
     erc20 = fixture.erc20;
-    erc20_2 = fixture.erc20_2;
+    ib01token = fixture.ib01token;
     CErc20 = fixture.CErc20;
     CErc20_2 = fixture.CErc20_2;
   });
@@ -114,14 +144,14 @@ describe("🔥Fork BackToBack Test🔥", function () {
     });
 
     it("Deployer can get 1000 initial supply for token B", async function () {
-      expect(await erc20_2.balanceOf(owner.address)).to.equal(
+      expect(await ib01token.balanceOf(owner.address)).to.equal(
         ethers.utils.parseUnits("1000", 18)
       );
-      console.log("🐶underlying ERC20 token B(IB01):", erc20_2.address);
+      console.log("🐶underlying ERC20 token B(IB01):", ib01token.address);
     });
   });
 
-  describe("Compund mint/redeem function", function () {
+  describe("Compound mint/redeem function", function () {
     it("User can correctly supply BackToBack with 100 token A", async function () {
       await comptroller._supportMarket(CErc20.address);
       await erc20.approve(CErc20.address, ethers.utils.parseUnits("10000", 18));
@@ -148,7 +178,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
 
     it("User can correctly supply BackToBack with 500 token B", async function () {
       await comptroller._supportMarket(CErc20_2.address);
-      await erc20_2.approve(
+      await ib01token.approve(
         CErc20_2.address,
         ethers.utils.parseUnits("10000", "18")
       );
@@ -156,7 +186,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       expect(await CErc20_2.balanceOf(owner.address)).to.equal(
         ethers.utils.parseUnits("500", 18)
       );
-      expect(await erc20_2.balanceOf(owner.address)).to.equal(
+      expect(await ib01token.balanceOf(owner.address)).to.equal(
         ethers.utils.parseUnits("500", 18)
       );
       console.log("🐶🐶CErc20 token B(cIB01):", CErc20_2.address);
@@ -164,7 +194,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
 
     it("User can correctly redeem partial 300 token B with cToken B", async function () {
       await comptroller._supportMarket(CErc20_2.address);
-      await erc20_2.approve(
+      await ib01token.approve(
         CErc20_2.address,
         ethers.utils.parseUnits("10000", "18")
       );
@@ -173,7 +203,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       expect(await CErc20_2.balanceOf(owner.address)).to.equal(
         ethers.utils.parseUnits("200", 18)
       );
-      expect(await erc20_2.balanceOf(owner.address)).to.equal(
+      expect(await ib01token.balanceOf(owner.address)).to.equal(
         ethers.utils.parseUnits("800", 18)
       );
     });
@@ -246,8 +276,8 @@ describe("🔥Fork BackToBack Test🔥", function () {
       await CErc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
 
       //Mint token B and supply token B into BackToBack
-      await erc20_2.connect(user1).mint(ethers.utils.parseUnits("10", 18));
-      await erc20_2
+      await ib01token.connect(owner).mint(user1.address, ethers.utils.parseUnits("10", 18));
+      await ib01token
         .connect(user1)
         .approve(CErc20_2.address, ethers.utils.parseUnits("1000", 18));
       await CErc20_2.connect(user1).mint(ethers.utils.parseUnits("1", 18));
@@ -313,8 +343,8 @@ describe("🔥Fork BackToBack Test🔥", function () {
       await CErc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
 
       //Mint token B and supply token B into BackToBack
-      await erc20_2.connect(user1).mint(ethers.utils.parseUnits("10", 18));
-      await erc20_2
+      await ib01token.connect(owner).mint(user1.address, ethers.utils.parseUnits("10", 18));
+      await ib01token
         .connect(user1)
         .approve(CErc20_2.address, ethers.utils.parseUnits("1000", 18));
       await CErc20_2.connect(user1).mint(ethers.utils.parseUnits("1", 18));
@@ -387,8 +417,8 @@ describe("🔥Fork BackToBack Test🔥", function () {
       await CErc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
 
       //Mint token B and supply token B into BackToBack
-      await erc20_2.connect(user1).mint(ethers.utils.parseUnits("10", 18));
-      await erc20_2
+      await ib01token.connect(owner).mint(user1.address, ethers.utils.parseUnits("10", 18));
+      await ib01token
         .connect(user1)
         .approve(CErc20_2.address, ethers.utils.parseUnits("1000", 18));
       await CErc20_2.connect(user1).mint(ethers.utils.parseUnits("1", 18));

@@ -50,17 +50,47 @@ async function deployBackToBack() {
   );
   await CErc20.deployed();
 
-  //deploy token B
-  const erc20_2Factory = await ethers.getContractFactory("MockIB01");
-  const erc20_2 = await erc20_2Factory.deploy(
-    ethers.utils.parseUnits("1000", 18)
-  );
-  await erc20_2.deployed();
 
-  //deploy cToken B
+  //deploy token IB01
+  const SanctionsListMockFacory = await ethers.getContractFactory('SanctionsListMock');
+  const SanctionsListMock = await SanctionsListMockFacory.deploy();
+  await SanctionsListMock.deployed();
+
+  const BackedOracleFactory = await ethers.getContractFactory('BackedOracle');
+  const BackedOracle = await BackedOracleFactory.deploy(18, "bIB01 Price Feed");
+  await BackedOracle.deployed();
+
+  const BackedFactoryFactory = await ethers.getContractFactory('BackedFactory');
+  const BackedFactory = await BackedFactoryFactory.deploy(owner.address);
+  await BackedFactory.deployed();
+
+  const tokenName = "Backed IB01";
+  const tokenSymbol = "IB01";
+  let minter = owner.address;
+  let burner = owner.address;
+  let pauser = owner.address;
+  let tokenContractOwner = owner.address;
+
+  const tokenDeployReceipt = await (
+      await BackedFactory.connect(owner).deployToken(
+        tokenName,
+        tokenSymbol,
+        tokenContractOwner,
+        minter,
+        burner,
+        pauser,
+        SanctionsListMock.address
+      )
+    ).wait();
+  const deployedTokenAddress = tokenDeployReceipt.events?.find((event) => event.event === "NewToken")?.args?.newToken;
+  const ib01token = await ethers.getContractAt("BackedTokenImplementation",deployedTokenAddress);
+  await ib01token.setMinter(owner.address);
+  await ib01token.setBurner(owner.address);
+  await ib01token.mint(owner.address, ethers.utils.parseUnits("1000", 18)) 
+
   const CErc20_2Factory = await ethers.getContractFactory("CErc20Immutable");
   const CErc20_2 = await CErc20_2Factory.deploy(
-    erc20_2.address,
+    ib01token.address,
     comptroller.address,
     interestRateModel.address,
     ethers.utils.parseUnits("1", 18),
@@ -81,7 +111,7 @@ async function deployBackToBack() {
     CErc20,
     erc20,
     CErc20_2,
-    erc20_2,
+    ib01token,
   };
 }
 
@@ -93,7 +123,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
         user1,
         user2,
         erc20,
-        erc20_2,
+        ib01token,
         CErc20,
         CErc20_2,
         priceOracle,
@@ -136,8 +166,8 @@ describe("🔥Fork BackToBack Test🔥", function () {
       await CErc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
 
       //Mint token B and supply token B into BackToBack
-      await erc20_2.connect(user1).mint(ethers.utils.parseUnits("10", 18));
-      await erc20_2
+      await ib01token.connect(owner).mint(user1.address, ethers.utils.parseUnits("10", 18));
+      await ib01token
         .connect(user1)
         .approve(CErc20_2.address, ethers.utils.parseUnits("1000", 18));
       await CErc20_2.connect(user1).mint(ethers.utils.parseUnits("1", 18));
@@ -179,7 +209,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
         user1,
         user2,
         erc20,
-        erc20_2,
+        ib01token,
         CErc20,
         CErc20_2,
         priceOracle,
@@ -222,8 +252,8 @@ describe("🔥Fork BackToBack Test🔥", function () {
       await CErc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
 
       //Mint token B and supply token B into BackToBack
-      await erc20_2.connect(user1).mint(ethers.utils.parseUnits("10", 18));
-      await erc20_2
+      await ib01token.connect(owner).mint(user1.address, ethers.utils.parseUnits("10", 18));
+      await ib01token
         .connect(user1)
         .approve(CErc20_2.address, ethers.utils.parseUnits("1000", 18));
       await CErc20_2.connect(user1).mint(ethers.utils.parseUnits("1", 18));
@@ -288,7 +318,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
     //     CErc20,
     //     erc20,
     //     CErc20_2,
-    //     erc20_2,
+    //     ib01token,
     //   } = await deployBackToBack();
     //   owner = ownerc;
     //   user1 = user1c;

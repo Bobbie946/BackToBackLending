@@ -80,6 +80,6 @@ npx hardhat test test/BackToBack_Liquidation.js
 
    ```
      npx hardhat run scripts/deploy.js
-      npx hardhat run scripts/adminrun.js
+     npx hardhat run scripts/adminrun.js
     ```
 

@@ -40,11 +40,12 @@ describe("🔥Fork BackToBack Test🔥", function () {
     await interestRateModel.deployed();
 
     //deploy token A
-    const erc20Factory = await ethers.getContractFactory("MockUSDC");
-    const erc20 = await erc20Factory.deploy(
-      ethers.utils.parseUnits("1000", 18)
-    );
+    const erc20Factory = await ethers.getContractFactory("FiatTokenV2_1");
+    const erc20 = await erc20Factory.deploy();
     await erc20.deployed();
+    await erc20.initialize("B2BMOCKUSDC", "MOCKUSDC", "USD", 18, owner.address, owner.address,owner.address,owner.address  )
+    await erc20.configureMinter(owner.address, "115792089237316195423570985008687907853269984665640564039457584007913129639935")
+    await erc20.mint(owner.address, ethers.utils.parseUnits("1000", 18))
 
     const CErc20Factory = await ethers.getContractFactory("CErc20Immutable");
     const CErc20 = await CErc20Factory.deploy(
@@ -232,7 +233,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       );
 
       //Mint token A and supply token A into BackToBack
-      await erc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+      await erc20.connect(owner).mint(user1.address, ethers.utils.parseUnits("100", 18));
       await erc20
         .connect(user1)
         .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
@@ -269,7 +270,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       );
 
       //Mint token A and supply token A into BackToBack
-      await erc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+      await erc20.connect(owner).mint(user1.address, ethers.utils.parseUnits("100", 18));
       await erc20
         .connect(user1)
         .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
@@ -336,7 +337,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       );
 
       //Mint token A and supply token A into BackToBack
-      await erc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+      await erc20.connect(owner).mint(user1.address, ethers.utils.parseUnits("100", 18));
       await erc20
         .connect(user1)
         .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
@@ -360,7 +361,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       );
 
       //user2 liquidate user1
-      await erc20.connect(user2).mint(ethers.utils.parseUnits("50", 18));
+      await erc20.connect(owner).mint(user2.address, ethers.utils.parseUnits("50", 18));
       await erc20
         .connect(user2)
         .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
@@ -410,7 +411,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       );
 
       //Mint token A and supply token A into BackToBack
-      await erc20.connect(user1).mint(ethers.utils.parseUnits("100", 18));
+      await erc20.connect(owner).mint(user1.address, ethers.utils.parseUnits("100", 18));
       await erc20
         .connect(user1)
         .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));
@@ -434,7 +435,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
       );
 
       //user2 liquidate user1
-      await erc20.connect(user2).mint(ethers.utils.parseUnits("50", 18));
+      await erc20.connect(owner).mint(user2.address, ethers.utils.parseUnits("50", 18));
       await erc20
         .connect(user2)
         .approve(CErc20.address, ethers.utils.parseUnits("1000", 18));

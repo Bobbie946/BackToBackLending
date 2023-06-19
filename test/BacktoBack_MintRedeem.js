@@ -19,7 +19,7 @@ describe("CERC20", function () {
     const erc20Factory = await ethers.getContractFactory("FiatTokenV2_1");
     const erc20 = await erc20Factory.deploy();
     await erc20.deployed();
-    await erc20.initialize("B2BMOCKUSDC", "MOCKUSDC", "USD", 18, owner.address, owner.address,owner.address,owner.address  )
+    await erc20.initialize("B2BMOCKUSDC", "MOCKUSDC", "USD", 18, owner.address, owner.address,owner.address,owner.address)
     await erc20.configureMinter(owner.address, "115792089237316195423570985008687907853269984665640564039457584007913129639935")
     await erc20.mint(owner.address, ethers.utils.parseUnits("100000", 18))
 

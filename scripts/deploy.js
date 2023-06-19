@@ -1,10 +1,19 @@
 const { ethers } = require("hardhat");
 const fs = require('fs');
 const config = require('../config.json');
+const address = require('../address.json');
+const hre = require("hardhat");
+const privKey = config.privateKey;
+const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${process.env.INFURA_TOKEN}`);
+// const provider = new ethers.providers.Web3Provider(network.provider)
 
 
 async function main() {
-  deployer_address = ''
+
+  const deployer = await new ethers.Wallet(privKey, provider);
+  console.log("Deploying contracts with the account:", deployer.address);
+  console.log("Account balance:", (await deployer.getBalance()).toString());
+
   //deploy comptroller for risk control
   const Comptroller1 = await ethers.getContractFactory("Comptroller");
   const comptroller = await Comptroller1.deploy();
@@ -24,9 +33,6 @@ async function main() {
   const interestRateModel = await interestRateModelFactory.deploy(ethers.utils.parseUnits("0", 18), ethers.utils.parseUnits("0", 18));
   await interestRateModel.deployed();
   console.log("interestRateModel Deployed to ", interestRateModel.address);
-  // const WhitePaperInterestRateModel1 = await ethers.getContractFactory("WhitePaperInterestRateModel");
-  // const WhitePaperInterestRateModel = await WhitePaperInterestRateModel1.deploy(0, '200000000000000000');
-  // console.log("WhitePaperInterestRateModel Deployed to ", WhitePaperInterestRateModel.address);
 
   //deploy JumpRateModel
   const JumpRateModel1 = await ethers.getContractFactory("JumpRateModel");
@@ -40,9 +46,12 @@ async function main() {
   console.log("CErc20Delegate Deployed to ", CErc20Delegate.address);
 
   //deploy token A
-  const erc20Factory = await ethers.getContractFactory("MockUSDC");
-  const erc20 = await erc20Factory.deploy(ethers.utils.parseUnits("10000", 18));
+  const erc20Factory = await ethers.getContractFactory("FiatTokenV2_1");
+  const erc20 = await erc20Factory.deploy();
   console.log("MockUSDC Deployed to ", erc20.address);
+  const initialize =  await erc20.connect(deployer).initialize("B2BMOCKUSDC", "MOCKUSDC", "USD", 18, deployer.address, deployer.address, deployer.address, deployer.address)
+  const configureMinter = await erc20.connect(deployer).configureMinter(deployer.address,"115792089237316195423570985008687907853269984665640564039457584007913129639935")
+  const mint = await erc20.connect(deployer).mint(deployer.address, ethers.utils.parseUnits("10000", 18))
 
   const CErc20Factory = await ethers.getContractFactory("CErc20Immutable");
   const CErc20 = await CErc20Factory.deploy(
@@ -58,44 +67,61 @@ async function main() {
   await CErc20.deployed();
   console.log("CUSDC Deployed to ", CErc20.address);
 
-  //deploy token B
-  const ib01Factory = await ethers.getContractFactory("MockIB01");
-  const ib01 = await ib01Factory.deploy(ethers.utils.parseUnits("10000", 18));
-  console.log("MockIB01 Deployed to ", ib01.address);
+  //deploy token IB01
+  const SanctionsListMockFacory = await ethers.getContractFactory('SanctionsListMock');
+  const SanctionsListMock = await SanctionsListMockFacory.deploy();
+  await SanctionsListMock.deployed();
+  console.log("SanctionsListMock Deployed to ", SanctionsListMock.address);
+
+  const BackedOracleFactory = await ethers.getContractFactory('BackedOracle');
+  const BackedOracle = await BackedOracleFactory.deploy(18, "bIB01 Price Feed");
+  await BackedOracle.deployed();
+  console.log("BackedOracle Deployed to ", BackedOracle.address);
+
+  const BackedFactoryFactory = await ethers.getContractFactory('BackedFactory');
+  const BackedFactory = await BackedFactoryFactory.deploy(config.adminAddress);
+  await BackedFactory.deployed();
+  console.log("BackedFactory Deployed to ", BackedFactory.address);
+
+  const tokenName = "Backed IB01";
+  const tokenSymbol = "IB01";
+  let minter = deployer.address;
+  let burner = deployer.address;
+  let pauser = deployer.address;
+  let tokenContractOwner = deployer.address;
+
+  const tokenDeployReceipt = await (
+      await BackedFactory.deployToken(
+        tokenName,
+        tokenSymbol,
+        tokenContractOwner,
+        minter,
+        burner,
+        pauser,
+        SanctionsListMock.address
+      )
+    ).wait();
+  const deployedTokenAddress = tokenDeployReceipt.events?.find((event) => event.event === "NewToken")?.args?.newToken;
+  console.log(deployedTokenAddress)
+  const ib01token = await ethers.getContractAt("BackedTokenImplementation", deployedTokenAddress);
+  await ib01token.connect(deployer).setMinter(deployer.address);
+  await ib01token.connect(deployer).setBurner(deployer.address);
+  await ib01token.connect(deployer).mint(deployer.address, ethers.utils.parseUnits("10000", 18)) 
+  console.log(ib01token.address)
 
   const CErc20_2Factory = await ethers.getContractFactory("CErc20Immutable");
   const CErc20_2 = await CErc20_2Factory.deploy(
-    ib01.address,
+    ib01token.address,
     comptroller.address,
     interestRateModel.address,
     ethers.utils.parseUnits("1", 18),
-    "compound IB01",
+    "BackToBack IB01",
     "cIB01",
     18,
     config.adminAddress
   );
   await CErc20_2.deployed();
   console.log("CIB01 Deployed to ", CErc20_2.address);
-
-  // const Unitroller1 = await ethers.getContractFactory("Unitroller");
-  // const Unitroller = await Unitroller1.deploy();
-  // console.log("Unitroller Deployed to ", Unitroller.address);
-
-  // const _setPendingImplementation = await Unitroller._setPendingImplementation(Comptroller.address);
-  // const _acceptImplementation = await Unitroller._acceptImplementation();
-  // const _become = await Comptroller._become(Unitroller.address);
-  
-  // const CEther1 = await ethers.getContractFactory("CEther");
-  // const CEther = await CEther1.deploy(Unitroller.address, WhitePaperInterestRateModel.address, '200000000000000000000000000', 'Compound Ether', 'cETH', '8', config.adminAddress);
-  // console.log("CEther Deployed to ", CEther.address);
-
-  // const JPT1 = await ethers.getContractFactory("JPT");
-  // const JPT = await JPT1.deploy('20000000000000000000000000');
-  // console.log("JPT Deployed to ", JPT.address);
-
-  // const cJPT1 = await ethers.getContractFactory("CErc20Delegator");
-  // const cJPT = await cJPT1.deploy(JPT.address, Unitroller.address, JumpRateModel.address, '200000000000000000000000000', 'Jirapat Token', 'cJPT', '8', config.adminAddress, CErc20Delegate.address, '0x00');
-  // console.log("cJPT Deployed to ", cJPT.address);
 
   let data = { 
     WhitePaperInterestRateModel: interestRateModel.address,
@@ -105,7 +131,7 @@ async function main() {
     CErc20Delegate: CErc20Delegate.address,
     MockUSDC: erc20.address,
     CUSDC: CErc20.address,
-    MockIB01: ib01.address,
+    MockIB01: ib01token.address,
     CIB01: CErc20_2.address,
 
   };

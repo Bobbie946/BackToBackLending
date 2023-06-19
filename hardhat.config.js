@@ -52,11 +52,11 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        enabled: true,
+        enabled: false,
         url: `https://mainnet.infura.io/v3/${process.env.INFURA_TOKEN}`,
+        accounts: process.env.DEPLOY_PRIVATE_KEY == undefined ? [] : [`0x${process.env.DEPLOY_PRIVATE_KEY}`],
         blockNumber: 15815693,
-      },
-    },
+      },    },
     mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_TOKEN}`,
       accounts: process.env.DEPLOY_PRIVATE_KEY == undefined ? [] : [`0x${process.env.DEPLOY_PRIVATE_KEY}`]

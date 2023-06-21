@@ -48,9 +48,13 @@ async function main() {
   //deploy token A
   const erc20Factory = await ethers.getContractFactory("FiatTokenV2_1");
   const erc20 = await erc20Factory.deploy();
+  await erc20.deployed();
   console.log("MockUSDC Deployed to ", erc20.address);
   const initialize =  await erc20.connect(deployer).initialize("B2BMOCKUSDC", "MOCKUSDC", "USD", 18, deployer.address, deployer.address, deployer.address, deployer.address)
-  const configureMinter = await erc20.connect(deployer).configureMinter(deployer.address,"115792089237316195423570985008687907853269984665640564039457584007913129639935")
+  console.log(initialize)
+  console.log(await erc20.masterMinter())
+  const configureMinter = await erc20.connect(deployer).configureMinter(deployer.address,ethers.utils.parseUnits("1000000000000000000", 18))//"115792089237316195423570985008687907853269984665640564039457584007913129639935")
+  console.log(configureMinter)
   const mint = await erc20.connect(deployer).mint(deployer.address, ethers.utils.parseUnits("10000", 18))
 
   const CErc20Factory = await ethers.getContractFactory("CErc20Immutable");
@@ -82,6 +86,11 @@ async function main() {
   const BackedFactory = await BackedFactoryFactory.deploy(config.adminAddress);
   await BackedFactory.deployed();
   console.log("BackedFactory Deployed to ", BackedFactory.address);
+
+  const BackedTokenImplementationFactory = await ethers.getContractFactory('BackedTokenImplementation');
+  const BackedTokenImplementation = await BackedTokenImplementationFactory.deploy();
+  await BackedTokenImplementation.deployed();
+  console.log("BackedTokenImplementation Deployed to ", BackedTokenImplementation.address);
 
   const tokenName = "Backed IB01";
   const tokenSymbol = "IB01";
@@ -133,7 +142,10 @@ async function main() {
     CUSDC: CErc20.address,
     MockIB01: ib01token.address,
     CIB01: CErc20_2.address,
-
+    SanctionsListMock: SanctionsListMock.address,
+    BackedOracle: BackedOracle.address,
+    BackedFactory: BackedFactory.address,
+    BackedTokenImplementation: BackedTokenImplementation.address,
   };
   let dataPrepare = JSON.stringify(data);
   fs.writeFileSync('address.json', dataPrepare);

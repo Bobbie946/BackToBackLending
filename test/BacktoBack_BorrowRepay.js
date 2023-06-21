@@ -152,7 +152,7 @@ describe("🔥Fork BackToBack Test🔥", function () {
     });
   });
 
-  describe("Compound mint/redeem function", function () {
+  describe("BacktoBack mint/redeem function", function () {
     it("User can correctly supply BackToBack with 100 token A", async function () {
       await comptroller._supportMarket(CErc20.address);
       await erc20.approve(CErc20.address, ethers.utils.parseUnits("10000", 18));
